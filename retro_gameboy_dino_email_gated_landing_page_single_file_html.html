@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Retro Gameboy Landing • Unlock the Lead Magnet</title>
+  <meta name="description" content="Beat the mini dino game (jump 3 obstacles) to unlock the lead magnet signup." />
+  <style>
+    :root{
+      --gb-body:#e5e4d7;           /* Game Boy case */
+      --gb-screen:#c4d4a7;         /* pea-green LCD */
+      --gb-dark:#0f380f;           /* dark pixel */
+      --gb-mid:#306230;            /* mid pixel */
+      --accent:#6b5b95;            /* purple (A/B buttons vibe) */
+      --ink:#0a0a0a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; color:var(--ink);
+      background:linear-gradient(180deg,#fafafa,#f0f0f0);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .wrap{width:min(920px,100%);}
+    header{
+      text-align:center; margin-bottom:14px; letter-spacing:.5px;
+      font-weight:700; font-size:clamp(18px,3.4vw,28px);
+    }
+    .gb{
+      background:var(--gb-body); border-radius:24px; padding:24px; position:relative;
+      box-shadow:0 12px 30px rgba(0,0,0,.12), inset 0 2px 0 rgba(255,255,255,.5);
+      border:1px solid #d7d6c8;
+    }
+    .bezel{
+      background:#b3b29c; border-radius:14px; padding:10px; border:2px solid #9c9b87;
+    }
+    .screen{
+      position:relative; background:var(--gb-screen); border-radius:10px; overflow:hidden;
+      border:2px solid #8d9b74;
+    }
+    .scanlines{
+      pointer-events:none; position:absolute; inset:0;
+      background:repeating-linear-gradient(
+        to bottom, rgba(15,56,15,.11) 0 2px, rgba(0,0,0,0) 2px 4px
+      ); mix-blend-multiply;
+    }
+    canvas{ display:block; width:100%; height:auto; image-rendering:pixelated; }
+    .hud{ position:absolute; left:8px; top:8px; font-size:12px; color:var(--gb-dark); text-shadow:0 1px rgba(255,255,255,.3); }
+    .hint{ position:absolute; bottom:10px; left:50%; transform:translateX(-50%); font-size:12px; opacity:.9; color:var(--gb-dark); }
+    .btnTap{
+      position:absolute; right:8px; bottom:8px; font-size:12px; background:rgba(255,255,255,.5); border:1px dashed var(--gb-mid); padding:4px 8px; border-radius:6px; backdrop-filter:blur(4px);
+    }
+    .controls{display:flex; gap:18px; align-items:center; justify-content:center; margin-top:14px; flex-wrap:wrap}
+    .ab{display:flex; gap:14px;}
+    .ab .btn{width:42px; height:42px; border-radius:50%; background:radial-gradient(circle at 30% 30%, #8b7ab6, var(--accent)); box-shadow:inset 0 6px 10px rgba(255,255,255,.35), inset 0 -10px 18px rgba(0,0,0,.25); border:none}
+    .dpad{display:grid; grid-template:repeat(3,16px)/repeat(3,16px); gap:3px;}
+    .dpad div{background:#3a3a3a;}
+    .dpad div:nth-child(1),.dpad div:nth-child(3),.dpad div:nth-child(5),.dpad div:nth-child(7),.dpad div:nth-child(9){background:transparent}
+
+    dialog{border:none; padding:0; border-radius:16px; width:min(540px,92vw); box-shadow:0 30px 80px rgba(0,0,0,.18)}
+    .gate{background:#fff; border-radius:16px; padding:22px 22px 18px}
+    .gate h2{margin:0 0 6px; font-size:22px}
+    .gate p{margin:0 0 14px; color:#333}
+    .gate form{display:grid; gap:10px}
+    .gate input[type=email]{padding:12px 12px; font-size:16px; border:1px solid #d0d0d0; border-radius:10px}
+    .gate button[type=submit]{
+      padding:12px 16px; font-size:16px; border-radius:10px; border:0; font-weight:700; cursor:pointer; background:#111; color:#fff
+    }
+    .fine{font-size:12px; color:#666}
+    .success{display:none; padding:10px; background:#ecfdf5; border:1px solid #bbf7d0; color:#065f46; border-radius:10px; font-size:14px}
+    .gameover{position:absolute; inset:auto 10px 34px 10px; background:rgba(255,255,255,.6); border:1px solid var(--gb-mid); border-radius:6px; padding:6px 8px; font-size:12px; color:var(--gb-dark); display:none}
+    .gameover.show{display:block}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>Retro Gameboy Landing — Jump 3 Obstacles to Unlock the Lead Magnet</header>
+
+    <section class="gb" aria-label="Retro Gameboy shell">
+      <div class="bezel">
+        <div class="screen" aria-label="Game screen">
+          <canvas id="game" width="640" height="240" aria-label="Dino runner game"></canvas>
+          <div class="scanlines" aria-hidden="true"></div>
+          <div class="hud" id="hud">Clears: <span id="clears">0</span>/3 • Score: <span id="score">0</span></div>
+          <div class="hint" id="hint">Press <strong>Space</strong> (or tap) to jump</div>
+          <button class="btnTap" id="tap">Tap to Jump</button>
+          <div class="gameover" id="gameover">Crashed! Press <b>R</b> to retry.</div>
+        </div>
+      </div>
+      <div class="controls" aria-hidden="true">
+        <div class="dpad" title="D-Pad">
+          <div></div><div></div><div></div>
+          <div></div><div></div><div></div>
+          <div></div><div></div><div></div>
+        </div>
+        <div class="ab">
+          <button class="btn" aria-hidden="true"></button>
+          <button class="btn" aria-hidden="true"></button>
+        </div>
+      </div>
+    </section>
+
+    <dialog id="emailGate" aria-labelledby="gateTitle">
+      <div class="gate">
+        <h2 id="gateTitle">Nice run! Grab your lead magnet 🎁</h2>
+        <p>Enter your email and we’ll send it right over.</p>
+        <div id="gateSuccess" class="success">Thanks! Check your inbox for the download link.</div>
+        <form id="signupForm" method="POST" novalidate>
+          <!--
+            🔌 INTEGRATION NOTE:
+            Replace the submit handler in the script with your ESP (Beehiiv, Substack, ConvertKit, etc.)
+            Or set action=... and remove JS if your provider supports simple POST.
+          -->
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="you@company.com" required />
+          <button type="submit">Get the Lead Magnet</button>
+          <p class="fine">We’ll only email you with the download + occasional updates. Unsubscribe anytime.</p>
+        </form>
+      </div>
+    </dialog>
+  </div>
+
+  <script>
+  (function(){
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const clearsEl = document.getElementById('clears');
+    const scoreEl = document.getElementById('score');
+    const hintEl = document.getElementById('hint');
+    const tapBtn = document.getElementById('tap');
+    const overEl = document.getElementById('gameover');
+    const gate = document.getElementById('emailGate');
+    const form = document.getElementById('signupForm');
+    const successBox = document.getElementById('gateSuccess');
+
+    // GAME CONSTANTS
+    const GROUND_Y = 200;                 // baseline y
+    const TARGET_CLEARS = 3;              // obstacles to clear to win
+    const PX = {dinoW:28, dinoH:28, obsW:18, obsH:34, groundH:2};
+    const COLORS = {bg:'#c4d4a7', dark:'#0f380f', mid:'#306230'};
+
+    const state = {
+      started:false, running:false, gameOver:false, win:false,
+      time:0, last:0, score:0,
+      clears:0,
+      dino:{x:60, y:GROUND_Y-28, w:PX.dinoW, h:PX.dinoH, vy:0, onGround:true},
+      obs:null, spawnCooldown:0, speed:230,
+    };
+
+    function reset(full=true){
+      state.started=false; state.running=false; state.gameOver=false; state.win=false;
+      state.time=0; state.last=0; state.score=0; state.clears=0; clearsEl.textContent='0'; scoreEl.textContent='0';
+      state.dino.x=60; state.dino.y=GROUND_Y-PX.dinoH; state.dino.vy=0; state.dino.onGround=true;
+      state.obs=null; state.spawnCooldown=0; state.speed=230;
+      hintEl.style.opacity=1; overEl.classList.remove('show');
+      draw(0); // paint idle frame
+    }
+
+    function start(){
+      if(state.running) return;
+      state.started=true; state.running=true; state.last=performance.now();
+      requestAnimationFrame(loop);
+    }
+
+    function spawnObstacle(){
+      // height variation for a bit of variety
+      const h = PX.obsH + Math.floor(Math.random()*12-6);
+      state.obs = {x:canvas.width+20, y:GROUND_Y-h, w:PX.obsW, h:Math.max(20,h), scored:false};
+    }
+
+    function jump(){
+      if(state.win || state.gameOver) return;
+      start();
+      if(state.dino.onGround){
+        state.dino.vy = -370; // jump impulse (px/s)
+        state.dino.onGround = false;
+        hintEl.style.opacity = 0;
+      }
+    }
+
+    function loop(now){
+      if(!state.running) return;
+      const dt = Math.min(40, now - state.last) / 1000; // clamp dt
+      state.last = now; state.time += dt; state.score += Math.floor(dt*100);
+
+      update(dt);
+      draw(dt);
+
+      if(state.running) requestAnimationFrame(loop);
+    }
+
+    function update(dt){
+      // Difficulty ramps slightly
+      state.speed = Math.min(380, state.speed + dt*4);
+
+      // Dino physics
+      if(!state.dino.onGround){
+        state.dino.vy += 1100*dt; // gravity
+        state.dino.y += state.dino.vy*dt;
+        if(state.dino.y >= GROUND_Y - state.dino.h){
+          state.dino.y = GROUND_Y - state.dino.h;
+          state.dino.vy = 0; state.dino.onGround = true;
+        }
+      }
+
+      // Spawn obstacle(s)
+      if(!state.obs && state.clears < TARGET_CLEARS){
+        state.spawnCooldown -= dt;
+        if(state.spawnCooldown <= 0){
+          spawnObstacle();
+        }
+      }
+
+      // Move obstacle & scoring
+      if(state.obs){
+        state.obs.x -= state.speed*dt;
+        if(state.obs.x + state.obs.w < 0){
+          // Missed scoring window: if it passes completely without scoring, count as clear anyway
+          if(!state.obs.scored){
+            state.clears++; clearsEl.textContent = String(state.clears);
+          }
+          state.obs = null; state.spawnCooldown = .8; // short delay before next
+        } else if(!state.obs.scored && (state.obs.x + state.obs.w) < (state.dino.x)){
+          state.obs.scored = true; state.clears++; clearsEl.textContent = String(state.clears);
+        }
+      }
+
+      // Collision
+      if(state.obs && intersects(state.dino, state.obs)){
+        state.gameOver = true; state.running = false; overEl.classList.add('show');
+      }
+
+      // Win condition
+      if(state.clears >= TARGET_CLEARS && !state.win){
+        state.win = true; state.running = false; showGate();
+      }
+
+      // HUD
+      scoreEl.textContent = String(state.score);
+    }
+
+    function draw(){
+      // Clear
+      ctx.fillStyle = COLORS.bg; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      // Ground
+      ctx.fillStyle = COLORS.mid; ctx.fillRect(0,GROUND_Y,canvas.width,PX.groundH);
+
+      // Dino (simple pixel dino)
+      const d = state.dino; ctx.fillStyle = COLORS.dark;
+      // body
+      ctx.fillRect(d.x, d.y, d.w, d.h);
+      // eye
+      ctx.clearRect(d.x + d.w-8, d.y+6, 3, 3);
+      // feet flicker
+      if(Math.floor(state.time*10)%2===0) ctx.clearRect(d.x+4, d.y+d.h-3, 6,2);
+
+      // Obstacle
+      if(state.obs){
+        const o = state.obs; ctx.fillStyle = COLORS.dark;
+        ctx.fillRect(o.x, o.y, o.w, o.h);
+        // little notch to feel like a cactus
+        ctx.clearRect(o.x+4, o.y+2, 6,4);
+      }
+
+      // Messages drawn directly for LCD vibe
+      ctx.fillStyle = COLORS.mid; ctx.font = '12px monospace';
+      if(!state.started) ctx.fillText('Press SPACE to start', 12, 18);
+    }
+
+    function intersects(a,b){
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+
+    function showGate(){
+      overEl.classList.remove('show');
+      hintEl.style.opacity = 0;
+      gate.showModal();
+    }
+
+    // Input
+    document.addEventListener('keydown', (e)=>{
+      if(e.code === 'Space'){ e.preventDefault(); jump(); }
+      if(e.key === 'r' || e.key === 'R'){ if(state.gameOver){ reset(); }}
+    });
+    tapBtn.addEventListener('click', jump);
+
+    // Form submission (demo)
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const email = (new FormData(form)).get('email')?.toString().trim();
+      if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        alert('Please enter a valid email.');
+        return;
+      }
+      // TODO: Replace this demo with your ESP endpoint or form action
+      try{
+        // Example: await fetch('YOUR_ENDPOINT', {method:'POST', body: new FormData(form)});
+        successBox.style.display='block';
+        form.reset();
+      }catch(err){
+        alert('Something went wrong. Please try again.');
+      }
+    });
+
+    // Init
+    reset();
+  })();
+  </script>
+</body>
+</html>
